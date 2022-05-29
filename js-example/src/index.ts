@@ -21,6 +21,11 @@ const contentElement = document.getElementById('blendshapes')!
 const statusElement = document.getElementById('status')!
 const fpsElement = document.getElementById('fps')
 const fallbackVideo = videoElement.currentSrc
+let startTime = Date.now()
+let keyFrameTime = 0;
+let frames = 0;
+let text = "bs,"
+ 
 
 function startTracking() {
     const faceRectangleElement = document.getElementById('rectangle')
@@ -28,14 +33,14 @@ function startTracking() {
     const context = new ApplicationContext(window.location.href) // Set a different URL here if you host application resources elsewhere
     const fs = new ResourceFileSystem(context)
     const fps = new FPS(1)
-
     // uncomment for de/serialization example bellow
     // const serializer = FaceTrackerResultSerializer.create()
     // const deserializer = FaceTrackerResultDeserializer.create(serializer.serializationFormat)
 
     // Initialize the API and activate API key
     // Note that without an API key the SDK works only for a short period of time
-    FacemojiAPI.initialize('<YOUR KEY HERE>', context).then((activated) => {
+    FacemojiAPI.initialize('aiz22dtfzfnay2skxhntzlysis2aiv4rdpi5pomvcm5zh6abwsnnv6y', context).then((activated) => {
+        // console.log(activated)
         if (activated) {
             console.info('API successfully activated')
         } else {
@@ -49,7 +54,6 @@ function startTracking() {
     const asyncTracker = FaceTracker.createVideoTracker(fs)
         .then((tracker) => {
             console.log('Started tracking')
-
             // Collect all blendshape names and prepare UI
             const blendshapeNames = tracker.blendshapeNames
                 .toArray()
@@ -62,8 +66,11 @@ function startTracking() {
                 const [li, div] = createBlendshapeElement(blendshape)
                 contentElement.appendChild(li)
                 blendshapeSliders.set(blendshape, div)
+                // console.log(blendshape)
+                text+=blendshape+","
             }
-
+            // console.log(blendshapeNames)
+            text= text.substring(0,text.length-1)+"\n"
             requestAnimationFrame(track)
             return tracker
         })
@@ -83,12 +90,25 @@ function startTracking() {
             faceRectangleElement.style.display = show ? 'block' : 'none'
         }
     }
-
+    return;
     /**
      * Performs face tracking, called every animation frame.
      */
     function track() {
-        requestAnimationFrame(track)
+        if(frames === 0)
+            startTime = Date.now()
+        frames +=1
+        const delta = Date.now() - startTime
+        keyFrameTime += delta
+        startTime = Date.now()
+
+        if(frames <800)
+            requestAnimationFrame(track)
+        else{
+            if(frames === 800)
+                console.log(text)
+        }
+        
         const tracker = asyncTracker.currentValue
 
         // Track only when everything is fully loaded and video is running
@@ -125,15 +145,29 @@ function startTracking() {
         // }
 
         // Update UI
+        const rotationEuler = lastResult.rotationQuaternion.toEuler()
+        text += "k,"+keyFrameTime+`,0.0,0.0,0.0,${Math.round(rotationEuler.x * 10000) / 10000},${Math.round(rotationEuler.y * 10000) / 10000},${Math.round(rotationEuler.z * 10000) / 10000},0.0,0.0,0.0,0.0,`
+        let blendShapesValues:any = {}
         for (const [name, value] of lastResult.blendshapes) {
             updateBlendshapeValue(name, value)
+            // console.log(name,value)
+            // text+=Math.round(value * 10000) / 10000+","
+            blendShapesValues[name] = Math.round(value * 10000) / 10000
         }
-
         const rotationBlendshapes = faceRotationToBlendshapes(lastResult.rotationQuaternion)
+
         for (const [name, value] of rotationBlendshapes) {
             updateBlendshapeValue(name, value)
-        }
+            // console.log(name,value)
+            blendShapesValues[name] = Math.round(value * 10000) / 10000
 
+        }
+        for (const blendshape of tracker.blendshapeNames.toArray()
+        .concat(faceRotationToBlendshapes(Quaternion.createWithFloat(0, 0, 0, 1)).map((e) => e[0]))
+        .sort()) {
+            text+=blendShapesValues[blendshape]+","
+        }
+        text = text.substring(0,text.length-1)+"\n"
         videoElement.className = videoResolutionClass(lastResult.inputImageSize)
 
         // Update face reactangle overlay
@@ -167,6 +201,7 @@ function startTracking() {
 
         // Update FPS counter
         fps.tick((currentFps) => {
+            // console.log(currentFps)
             if (fpsElement !== null) {
                 fpsElement.parentElement!.className = ''
                 fpsElement.innerText = currentFps.toFixed(0)
@@ -201,7 +236,7 @@ function startTracking() {
             div.style.width = `${(value * 100).toFixed(0)}%`
         }
     }
-
+    
     /**
      * Converts head rotation to blendshape-like values so that we can show it in the UI as well.
      * @param rotation rotation from the tracker
@@ -322,5 +357,7 @@ window.onblur = () => {
     videoElement.pause()
 }
 
+
 // Start tracking
 startTracking()
+
