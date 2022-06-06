@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@0xalter/mocap4face": "^0.3.0",
+    "axios": "^0.27.2",
     "browserify-fs": "^1.0.0"
   },
   "devDependencies": {

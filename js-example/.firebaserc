@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "prefilm-78ac1"
+  },
+  "targets": {
+    "prefilm-78ac1": {
+      "hosting": {
+        "animations-backlot": [
+          "animations-backlot"
+        ]
+      }
+    }
+  }
+}

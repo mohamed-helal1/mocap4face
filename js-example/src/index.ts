@@ -12,27 +12,35 @@ import {
     Vec2,
 } from '@0xalter/mocap4face'
 import './styles/main.scss'
+import axios from 'axios';
 
 Logger.logLevel = LogLevel.Info // Set LogLevel.Debug to increase logging verbosity when debugging
 const videoElement = document.getElementById('videoSource') as HTMLVideoElement
 const webcamButton = document.getElementById('webcam')!
+const startTrackingButton = document.getElementById('track')!
+const modal = document.getElementById('myModal')!
+const form = document.getElementById('myForm')!
+const closeModal = document.getElementsByClassName("close")[0];
 const webcamOverlay = webcamButton.parentElement!
 const contentElement = document.getElementById('blendshapes')!
 const statusElement = document.getElementById('status')!
 const fpsElement = document.getElementById('fps')
 const fallbackVideo = videoElement.currentSrc
+let startRecordingAnimations = false
 let startTime = Date.now()
 let keyFrameTime = 0;
 let frames = 0;
-let text = "bs,"
- 
+let textHead =  "bs,"
+let text = ""
+let driveID = window.location.search.replace("?driveID=","")
 
 function startTracking() {
     const faceRectangleElement = document.getElementById('rectangle')
     const blendshapeSliders = new Map<String, HTMLElement>()
-    const context = new ApplicationContext(window.location.href) // Set a different URL here if you host application resources elsewhere
+    const context = new ApplicationContext(window.location.origin) // Set a different URL here if you host application resources elsewhere
     const fs = new ResourceFileSystem(context)
     const fps = new FPS(1)
+    startTrackingButton.hidden = true
     // uncomment for de/serialization example bellow
     // const serializer = FaceTrackerResultSerializer.create()
     // const deserializer = FaceTrackerResultDeserializer.create(serializer.serializationFormat)
@@ -40,7 +48,6 @@ function startTracking() {
     // Initialize the API and activate API key
     // Note that without an API key the SDK works only for a short period of time
     FacemojiAPI.initialize('aiz22dtfzfnay2skxhntzlysis2aiv4rdpi5pomvcm5zh6abwsnnv6y', context).then((activated) => {
-        // console.log(activated)
         if (activated) {
             console.info('API successfully activated')
         } else {
@@ -54,23 +61,23 @@ function startTracking() {
     const asyncTracker = FaceTracker.createVideoTracker(fs)
         .then((tracker) => {
             console.log('Started tracking')
+
             // Collect all blendshape names and prepare UI
             const blendshapeNames = tracker.blendshapeNames
-                .toArray()
-                .concat(faceRotationToBlendshapes(Quaternion.createWithFloat(0, 0, 0, 1)).map((e) => e[0]))
-                .sort()
+                .toArray().sort()
 
             hideLoading()
             contentElement.replaceChildren() // remove dummy loading elements
             for (const blendshape of blendshapeNames) {
-                const [li, div] = createBlendshapeElement(blendshape)
-                contentElement.appendChild(li)
-                blendshapeSliders.set(blendshape, div)
-                // console.log(blendshape)
-                text+=blendshape+","
+                if(blendshape !== "browInnerUp_L" && blendshape !== "browInnerUp_R")
+                    textHead += blendshape + ","
+                // const [li, div] = createBlendshapeElement(blendshape)
+                // contentElement.appendChild(li)
+                // blendshapeSliders.set(blendshape, div)
             }
-            // console.log(blendshapeNames)
-            text= text.substring(0,text.length-1)+"\n"
+
+            textHead = textHead.substring(0, textHead.length - 1) + "\n"
+            text = textHead;
             requestAnimationFrame(track)
             return tracker
         })
@@ -80,7 +87,6 @@ function startTracking() {
     Promise.all([webcamAvailable, asyncTracker.promise()]).then(() => {
         webcamOverlay.classList.remove('hidden')
     })
-
     /**
      * Shows or hides rectangle around the detected face
      * @param show whether to show the face rectangle
@@ -95,24 +101,16 @@ function startTracking() {
      * Performs face tracking, called every animation frame.
      */
     function track() {
-        if(frames === 0)
-            startTime = Date.now()
-        frames +=1
+        frames += 1
         const delta = Date.now() - startTime
         keyFrameTime += delta
         startTime = Date.now()
 
-        if(frames <800)
-            requestAnimationFrame(track)
-        else{
-            if(frames === 800)
-                console.log(text)
-        }
-        
+        requestAnimationFrame(track)
         const tracker = asyncTracker.currentValue
 
         // Track only when everything is fully loaded and video is running
-        if (!tracker || videoElement === null || contentElement === null) {
+        if (!tracker || videoElement === null || contentElement === null || startRecordingAnimations === false) {
             setFaceRectangleVisible(false)
             return
         }
@@ -146,28 +144,24 @@ function startTracking() {
 
         // Update UI
         const rotationEuler = lastResult.rotationQuaternion.toEuler()
-        text += "k,"+keyFrameTime+`,0.0,0.0,0.0,${Math.round(rotationEuler.x * 10000) / 10000},${Math.round(rotationEuler.y * 10000) / 10000},${Math.round(rotationEuler.z * 10000) / 10000},0.0,0.0,0.0,0.0,`
-        let blendShapesValues:any = {}
+        text += "k," + keyFrameTime + `,0.0,0.0,0.0,${(Math.round(rotationEuler.x * 10000) / 10000)*90},${(Math.round(rotationEuler.y * 10000) / 10000)*90},${(Math.round(rotationEuler.z * 10000) / 10000)*90},0.0,0.0,0.0,0.0,`
+        let blendShapesValues: any = {}
         for (const [name, value] of lastResult.blendshapes) {
             updateBlendshapeValue(name, value)
-            // console.log(name,value)
-            // text+=Math.round(value * 10000) / 10000+","
             blendShapesValues[name] = Math.round(value * 10000) / 10000
         }
         const rotationBlendshapes = faceRotationToBlendshapes(lastResult.rotationQuaternion)
 
         for (const [name, value] of rotationBlendshapes) {
             updateBlendshapeValue(name, value)
-            // console.log(name,value)
             blendShapesValues[name] = Math.round(value * 10000) / 10000
 
         }
-        for (const blendshape of tracker.blendshapeNames.toArray()
-        .concat(faceRotationToBlendshapes(Quaternion.createWithFloat(0, 0, 0, 1)).map((e) => e[0]))
-        .sort()) {
-            text+=blendShapesValues[blendshape]+","
+        for (const blendshape of tracker.blendshapeNames.toArray().sort()) {
+            if(blendshape !== "browInnerUp_L" && blendshape !== "browInnerUp_R")
+                text += blendShapesValues[blendshape] + ","
         }
-        text = text.substring(0,text.length-1)+"\n"
+        text = text.substring(0, text.length - 1) + "\n"
         videoElement.className = videoResolutionClass(lastResult.inputImageSize)
 
         // Update face reactangle overlay
@@ -201,7 +195,6 @@ function startTracking() {
 
         // Update FPS counter
         fps.tick((currentFps) => {
-            // console.log(currentFps)
             if (fpsElement !== null) {
                 fpsElement.parentElement!.className = ''
                 fpsElement.innerText = currentFps.toFixed(0)
@@ -236,7 +229,7 @@ function startTracking() {
             div.style.width = `${(value * 100).toFixed(0)}%`
         }
     }
-    
+
     /**
      * Converts head rotation to blendshape-like values so that we can show it in the UI as well.
      * @param rotation rotation from the tracker
@@ -315,12 +308,15 @@ function hideLoading() {
     videoElement.parentElement?.classList?.remove('loading')
 }
 
+
+
 // Handle webcam button
 webcamButton.addEventListener('click', () => {
     if (videoElement.currentSrc === fallbackVideo) {
         navigator.mediaDevices
             .getUserMedia({ video: true })
             .then((stream) => {
+                startTrackingButton.hidden = false
                 videoElement.srcObject = stream
                 videoElement.autoplay = true
                 videoElement.parentElement?.classList.remove('video')
@@ -337,10 +333,11 @@ webcamButton.addEventListener('click', () => {
                 console.warn(err)
             })
     } else {
+        startTrackingButton.hidden = true
         webcamButton.title = 'Enable webcam'
         webcamButton.classList.remove('disable_webcam')
         if (videoElement.srcObject !== null) {
-            ;(videoElement.srcObject as MediaStream)?.getTracks().forEach((t) => t.stop())
+            ; (videoElement.srcObject as MediaStream)?.getTracks().forEach((t) => t.stop())
             videoElement.srcObject = null
         }
         videoElement.setAttribute('src', fallbackVideo)
@@ -358,6 +355,46 @@ window.onblur = () => {
 }
 
 
+startTrackingButton.addEventListener('click', () => {
+    if (startRecordingAnimations){
+        console.log(text)
+        modal.style.display = "block";
+    }else{
+        startTime = Date.now()
+        keyFrameTime = 0
+    }
+
+    startRecordingAnimations = !startRecordingAnimations
+    startTrackingButton.innerText = startRecordingAnimations ? 'Stop Tracking' : 'Start Tracking'
+})
+
+closeModal.addEventListener('click', () => {
+    modal.style.display = "none";
+    text = textHead;
+ })
+
+ form.onsubmit = async (e) => {
+     e.preventDefault()
+    const name = (<HTMLInputElement>document.getElementById('fname')!)
+    const button = (<HTMLInputElement>document.getElementById('fsubmit')!)
+    button.value = 'submitting'
+    console.log(name.value);
+    try{
+        await axios.post('https://us-central1-prefilm-78ac1.cloudfunctions.net/itemsLibrary/uploadBlendShapeClip',{
+            data:{
+                text,
+                name: name.value,
+                driveID
+            }
+        })
+    }
+    catch(error){
+        console.log(error)
+    }
+    button.value = 'Submit'
+    modal.style.display = "none";
+    text = textHead;
+    return false; // prevent reload
+  };
 // Start tracking
 startTracking()
-

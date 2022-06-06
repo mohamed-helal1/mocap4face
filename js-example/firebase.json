@@ -1,0 +1,14 @@
+{
+  "hosting": [
+    {
+      "target": "animations-backlot",
+      "public": "dist",
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  ]
+} 
