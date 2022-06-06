@@ -149,6 +149,3 @@ OSS used in mocap4face SDK:
 - [okhttp](https://square.github.io/okhttp/#license)
 
 Original [video](https://vimeo.com/125095515) by LaBeouf, Rönkkö & Turner.
-
-
-Test
