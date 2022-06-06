@@ -32,7 +32,7 @@ let keyFrameTime = 0;
 let frames = 0;
 let textHead =  "bs,"
 let text = ""
-let driveID = window.location.search.replace("?driveID=","")
+let token = window.location.search.replace("?token=","")
 
 function startTracking() {
     const faceRectangleElement = document.getElementById('rectangle')
@@ -384,7 +384,7 @@ closeModal.addEventListener('click', () => {
             data:{
                 text,
                 name: name.value,
-                driveID
+                token
             }
         })
     }
