@@ -380,7 +380,7 @@ closeModal.addEventListener('click', () => {
     button.value = 'submitting'
     console.log(name.value);
     try{
-        await axios.post('https://us-central1-prefilm-78ac1.cloudfunctions.net/itemsLibrary/uploadBlendShapeClip',{
+        await axios.post('https://us-central1-prefilm-78ac1.cloudfunctions.net/facialAnimations/uploadBlendShapeClip',{
             data:{
                 text,
                 name: name.value,
