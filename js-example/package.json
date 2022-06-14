@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "webpack serve --host 0.0.0.0 --config webpack.config.dev.js",
     "dev_https": "webpack serve --https --host 0.0.0.0 --config webpack.config.dev.js",
-    "build": "webpack --config webpack.config.prod.js"
+    "build": "webpack --config webpack.config.prod.js",
+    "deploy": "firebase use prefilm-78ac1 && npm run-script build && firebase deploy --only hosting:animations-backlot"
   },
   "author": "Alter",
   "license": "ISC",
